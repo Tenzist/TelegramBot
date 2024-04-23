@@ -1,0 +1,23 @@
+{
+  "name": "proj",
+  "version": "1.0.0",
+  "type": "module",
+  "main": "index.js",
+  "scripts": {
+    "dev": "nodemon index.js",
+    "start": "node index.js"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "dependencies": {
+    "bluebird": "^3.7.2",
+    "child_process": "^1.0.2",
+    "node-fetch": "^3.3.2",
+    "node-run-cmd": "^1.0.1",
+    "node-telegram-bot-api": "^0.65.1",
+    "nodemon": "^3.1.0",
+    "shelljs": "^0.8.5"
+  },
+  "description": ""
+}
