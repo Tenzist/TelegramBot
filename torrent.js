@@ -1,30 +1,22 @@
-const config = {
-  baseURL: "http://192.168.0.200:8080/api/v2",
-  username: "admin",
-  password: "Admin1",
-};
-
-
-async function login() {
-  const url = `${config.baseURL}/auth/login`;
+async function login(data) {
+  const url = `${data.baseURL}api/v2/auth/login`;
   const params = new URLSearchParams();
-  params.append("username", config.username);
-  params.append("password", config.password);
+  params.append("username", data.username);
+  params.append("password", data.password);
 
   try {
     const response = await fetch(url, {
       method: "POST",
       body: params,
       headers: {
-        Referer: config.baseURL,
+        Referer: data.baseURL,
         "Content-Type": "application/x-www-form-urlencoded",
       },
-      redirect: "manual", 
+      redirect: "manual",
     });
 
     if (response.status === 200) {
       const cookies = response.headers.get("set-cookie");
-      console.log("Login successful!");
       return cookies;
     } else {
       console.error("Login failed with status:", response.status);
@@ -36,29 +28,8 @@ async function login() {
   }
 }
 
-async function getTorrents(cookies) {
-  const url = `${config.baseURL}/torrents/info`;
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Cookie: cookies,
-      },
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const dataNames = data.map((data) => data.name);
-      console.log("Torrents:", dataNames);
-    } else {
-      console.error("Failed to fetch torrents, status:", response.status);
-    }
-  } catch (error) {
-    console.error("Error fetching torrents:", error);
-  }
-}
-
-async function getLastTorrents(cookies) {
-  const url = `${config.baseURL}/torrents/info?sort=added_on&reverse=true&limit=1`;
+async function getLastTorrents(data, cookies) {
+  const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true&limit=1`;
   try {
     const response = await fetch(url, {
       method: "GET",
@@ -78,8 +49,8 @@ async function getLastTorrents(cookies) {
   }
 }
 
-async function addTorrents(torrentUrls, cookies) {
-  const url = `${config.baseURL}/torrents/add`;
+async function addTorrents(data, torrentUrls, cookies) {
+  const url = `${data.baseURL}api/v2/torrents/add`;
   const params = new URLSearchParams();
   params.append("urls", torrentUrls);
 
@@ -92,8 +63,11 @@ async function addTorrents(torrentUrls, cookies) {
       },
     });
     if (response.ok) {
-      console.log("Torrent added");
-      return true;
+      console.log(response);
+
+      await new Promise((resolve) => setTimeout(resolve, 500));
+      const torrentName = await getLastTorrents(data, cookies);
+      return torrentName;
     } else {
       console.error("Failed to add torrent:", response.status);
     }
@@ -102,17 +76,25 @@ async function addTorrents(torrentUrls, cookies) {
   }
 }
 
-async function main(torrentUrls) {
-  const cookies = await login();
-  if (cookies) {
-    const added = await addTorrents(torrentUrls, cookies);
-    if (added) {
-      await new Promise((resolve) => setTimeout(resolve, 500));
-      const torrents = await getLastTorrents(cookies);
-      return torrents
+async function getTorrents(data, cookies) {
+  const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true&limit=5`;
+  try {
+    const response = await fetch(url, {
+      method: "GET",
+      headers: {
+        Cookie: cookies,
+      },
+    });
+    if (response.ok) {
+      const data = await response.json();
+      const dataNames = data.map((data) => data.name);
+      return dataNames;
+    } else {
+      console.error("Failed to fetch torrents, status:", response.status);
     }
+  } catch (error) {
+    console.error("Error fetching torrents:", error);
   }
 }
 
-// main();
-export { main };
+export { getTorrents, addTorrents, getLastTorrents, login };
