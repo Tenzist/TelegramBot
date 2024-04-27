@@ -1,6 +1,7 @@
 import TelegramBot from "node-telegram-bot-api";
-import { getTorrents, login, addTorrents } from "./torrent.js";
+import { getTorrents, login, addTorrents, fixURL } from "./torrent.js";
 import fs from "fs";
+import { captureRejectionSymbol } from "events";
 
 const token = "6505788806:AAEWAISgAd7rY3M08mBzqjjhQ2b08R9c2Ig";
 const bot = new TelegramBot(token, { polling: true });
@@ -13,51 +14,65 @@ bot.setMyCommands([
 ]);
 
 const start = () => {
-
   let isLoginIn = false;
-  let cookie = "";
   let userLoginData = {};
+
+  async function itsMeMario() {
+    userLoginData = {
+      baseURL: "http://192.168.0.200:8080/",
+      username: "admin",
+      password: "Admin1",
+    };
+    isLoginIn = true;
+  }
+
+  bot.onText("asd", async (msg) => {
+    const chatId = msg.chat.id;
+    // bot.sendMessage(chatId, 'tu lox');
+  });
 
   bot.on("message", async (msg) => {
     const userId = msg.from.id;
-    
-    if(userId === 452648868){
-      itsMeMario()
-     }
- 
+    if (userId === 452648868) {
+      itsMeMario();
+    }
+    const chatId = msg.chat.id;
+    const text = msg.text;
+    // bot.sendMessage(chatId, text);
+    // if (text === "asd") {
+    //   bot.removeListener("message");
+    // }
   });
-
 
   bot.onText(/\/login/, async (msg) => {
     const chatId = msg.chat.id;
 
+    bot.removeListener("message");
     if (!isLoginIn) {
       let counter = 0;
-      let data = "baseURL";
       bot.sendMessage(chatId, "Send torrent IP");
       bot.on("message", async (msg) => {
         if (msg.chat.id === chatId) {
-          userLoginData[data] = msg.text;
-          counter++;
-          if (counter === 1) {
-            data = "username";
+          if (counter === 0) {
+            userLoginData["baseURL"] = await fixURL(msg.text);
             bot.sendMessage(chatId, "Send User name");
           }
-          if (counter === 2) {
-            data = "password";
+          if (counter === 1) {
+            userLoginData["username"] = msg.text;
             bot.sendMessage(chatId, "Send Password");
           }
-          if (counter === 3) {
-            bot.removeListener("message", this);
+          if (counter === 2) {
+            userLoginData["password"] = msg.text;
 
-            cookie = await login(userLoginData);
+            const cookie = await login(userLoginData);
             if (cookie) {
               bot.sendMessage(chatId, "Login successful!");
               isLoginIn = true;
             } else {
-              bot.sendMessage(chatId, "Something go wrong, try again");
+              bot.sendMessage(chatId, "Can't connect to qBit");
             }
           }
+          counter++;
         }
       });
     } else {
@@ -68,10 +83,11 @@ const start = () => {
   bot.onText(/\/add/, async (msg) => {
     const chatId = msg.chat.id;
     if (isLoginIn) {
-      bot.sendMessage(chatId, "Send Torrent link");
+      bot.sendMessage(chatId, "Send Torrent link \n Cancel operation: /cancel");
       bot.once("message", async (msg) => {
         const text = msg.text;
         if (text.startsWith("magnet:?") || text.endsWith(".torrent")) {
+          const cookie = await login(userLoginData);
           const AddTorr = await addTorrents(userLoginData, text, cookie);
           if (AddTorr) {
             bot.sendMessage(chatId, `Add new Torrent: ${AddTorr}`, {
@@ -80,105 +96,70 @@ const start = () => {
           } else {
             bot.sendMessage(chatId, "Something go wrong");
           }
+        } else {
+          bot.sendMessage(chatId, "This is not a link");
         }
       });
     } else {
-      bot.sendMessage(chatId, "You need to login");
+      bot.sendMessage(chatId, "You need to /login");
     }
   });
 
+  let rangeLim = 0;
   bot.onText(/\/get/, async (msg) => {
+    await getT(msg);
+  });
+
+  bot.on("callback_query", async (msg) => {
+    const data = msg.data;
+    const messageId = msg.message.message_id
+    const chatId = msg.message.chat.id;
+    if (data === "prev") {
+      rangeLim -= 5;
+      bot.deleteMessage(chatId, messageId)
+      await getT(msg.message);
+    }
+    if (data === "next") {
+      rangeLim += 5;
+      bot.deleteMessage(chatId, messageId)
+      await getT(msg.message);
+    }
+    // console.log(data);
+    // bot.sendMessage(chatId, data);
+  });
+
+
+  async function getT(msg) {
+
     const chatId = msg.chat.id;
     if (isLoginIn) {
+      const cookie = await login(userLoginData);
       const list = await getTorrents(userLoginData, cookie);
-      console.log(list);
-      bot.sendMessage(chatId, "Here is last 5 added torrent:");
-      for (const names of list) {
-        console.log(names);
-        await bot.sendMessage(chatId, names);
+      if (list) {
+        const inline_keyboard = [];
+        for (const item of list.slice(
+          rangeLim,
+          Math.min(rangeLim + 5, list.length)
+        )) {
+          inline_keyboard.push([{ text: item.name, callback_data: item.hash }]);
+        }
+        inline_keyboard.push([
+          { text: "<", callback_data: "prev" },
+          { text: ">", callback_data: "next" },
+        ]);
+        const replyMark = {
+          reply_markup: JSON.stringify({
+            inline_keyboard: inline_keyboard,
+          }),
+        };
+        bot.sendMessage(chatId, "Here is last added torrent:", replyMark);
+      } else {
+        bot.sendMessage(chatId, "aga");
       }
     } else {
-      bot.sendMessage(chatId, "You need to login");
+      bot.sendMessage(chatId, "You need to /login");
     }
-  });
-  
-  async function itsMeMario(){
-    userLoginData = {
-      baseURL: "http://192.168.0.200:8080/",
-      username: "admin",
-      password: "Admin1",
-    };
-    cookie = await login(userLoginData);
-    isLoginIn = true 
   }
-  
 };
-
-
-
-
-
-// async function saveToJSON(filename, data) {
-//   const jsonData = JSON.stringify(data);
-//   fs.writeFile(filename, jsonData, "utf8", (err) => {
-//     if (err) {
-//       console.error("Error writing to file:", err);
-//       return;
-//     }
-//     console.log("Data has been saved");
-//   });
-// }
-
-// async function loadFromJSON(filename) {
-//   try {
-//     const data = fs.readFileSync(filename, "utf8");
-//     return JSON.parse(data);
-//   } catch (err) {
-//     console.error("Error reading users file:", err);
-//     return [];
-//   }
-// }
-
-// async function addToJSON(filename, newData) {
-//   let data = await loadFromJSON(filename);
-
-//   for (let item in data) {
-//     console.log(data[item]);
-//     if (!data[item].id.toString() === newData.id) {
-
-//       data[item + 1] = newData;
-//     } else {
-//       data[item] = newData;
-//     }
-
-//   }
-//   console.log(data);
-// const index = (data.id === newData.id);
-// console.log(index)
-// if (index !== -1) {
-//   data[index] = newData;
-// } else {
-//   data.push(newData);
-// }
-
-// const jsonData = JSON.stringify(data, null, 2);
-// fs.writeFile(filename, jsonData, 'utf8', (err) => {
-//   if (err) {
-//     console.error("Error writing to file:", err);
-//     return;
-//   }
-//   console.log("Data has been saved");
-// });
-// }
-
-// const fakeData = {
-//   id: "452648868",
-//   baseURL: "http:",
-//   username: "ad",
-//   password: "A",
-// };
-
-// addToJSON(filename, fakeData);
-// console.log(loadFromJSON("data.json"));
 
 start();

@@ -9,7 +9,7 @@ async function login(data) {
       method: "POST",
       body: params,
       headers: {
-        Referer: data.baseURL,
+        Referer: url,
         "Content-Type": "application/x-www-form-urlencoded",
       },
       redirect: "manual",
@@ -77,7 +77,7 @@ async function addTorrents(data, torrentUrls, cookies) {
 }
 
 async function getTorrents(data, cookies) {
-  const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true&limit=5`;
+  const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true`;
   try {
     const response = await fetch(url, {
       method: "GET",
@@ -88,7 +88,7 @@ async function getTorrents(data, cookies) {
     if (response.ok) {
       const data = await response.json();
       const dataNames = data.map((data) => data.name);
-      return dataNames;
+      return data;
     } else {
       console.error("Failed to fetch torrents, status:", response.status);
     }
@@ -97,4 +97,17 @@ async function getTorrents(data, cookies) {
   }
 }
 
-export { getTorrents, addTorrents, getLastTorrents, login };
+
+async function fixURL(url) {
+  if (!url.startsWith("http://") && !url.startsWith("https://")) {
+      url = "http://" + url;
+  }
+  
+  if (!url.endsWith("/")) {
+      url += "/";
+  }
+  
+  return url;
+}
+
+export { getTorrents, addTorrents, getLastTorrents, login, fixURL };
