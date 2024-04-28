@@ -1,5 +1,11 @@
 import TelegramBot from "node-telegram-bot-api";
-import { getTorrents, login, addTorrents, fixURL } from "./torrent.js";
+import {
+  getTorrentList,
+  login,
+  addTorrents,
+  fixURL,
+  getByHashTorrent,
+} from "./torrent.js";
 import fs from "fs";
 import { captureRejectionSymbol } from "events";
 
@@ -38,11 +44,15 @@ const start = () => {
     }
     const chatId = msg.chat.id;
     const text = msg.text;
+    const date = new Date(msg.date);
+    console.log(date)
+    
     // bot.sendMessage(chatId, text);
     // if (text === "asd") {
     //   bot.removeListener("message");
     // }
   });
+
 
   bot.onText(/\/login/, async (msg) => {
     const chatId = msg.chat.id;
@@ -90,7 +100,7 @@ const start = () => {
           const cookie = await login(userLoginData);
           const AddTorr = await addTorrents(userLoginData, text, cookie);
           if (AddTorr) {
-            bot.sendMessage(chatId, `Add new Torrent: ${AddTorr}`, {
+            bot.sendMessage(chatId, `Add new Torrent: ${AddTorr[0].name}`, {
               reply_to_message_id: msg.message_id,
             });
           } else {
@@ -112,29 +122,41 @@ const start = () => {
 
   bot.on("callback_query", async (msg) => {
     const data = msg.data;
-    const messageId = msg.message.message_id
+    const messageId = msg.message.message_id;
     const chatId = msg.message.chat.id;
     if (data === "prev") {
       rangeLim -= 5;
-      bot.deleteMessage(chatId, messageId)
+      bot.deleteMessage(chatId, messageId);
       await getT(msg.message);
     }
     if (data === "next") {
       rangeLim += 5;
-      bot.deleteMessage(chatId, messageId)
+      bot.deleteMessage(chatId, messageId);
       await getT(msg.message);
     }
+    if(data.length === 40){
+      const cookie = await login(userLoginData);
+      const dd = await getByHashTorrent(userLoginData, cookie, data)
+      const torrent = dd[0]
+      const date = new Date(torrent.date).toString();
+      bot.sendMessage(chatId, `added_on:${date}\n
+      category: ${torrent.category} \n
+      content_path: ${torrent.content_path} \n
+      name: ${torrent.name}`);
+      console.log(dd)
+    }
+    console.log(data);
+
+    // bot.sendMessage(chatId, "aga");
     // console.log(data);
     // bot.sendMessage(chatId, data);
   });
 
-
   async function getT(msg) {
-
     const chatId = msg.chat.id;
     if (isLoginIn) {
       const cookie = await login(userLoginData);
-      const list = await getTorrents(userLoginData, cookie);
+      const list = await getTorrentList(userLoginData, cookie);
       if (list) {
         const inline_keyboard = [];
         for (const item of list.slice(
@@ -143,10 +165,18 @@ const start = () => {
         )) {
           inline_keyboard.push([{ text: item.name, callback_data: item.hash }]);
         }
-        inline_keyboard.push([
-          { text: "<", callback_data: "prev" },
-          { text: ">", callback_data: "next" },
-        ]);
+        if (list.length >= 5) {
+          if (rangeLim === 0) {
+            inline_keyboard.push([{ text: ">", callback_data: "next" }]);
+          } else if (rangeLim + 5 >= list.length) {
+            inline_keyboard.push([{ text: "<", callback_data: "prev" }]);
+          } else {
+            inline_keyboard.push([
+              { text: "<", callback_data: "prev" },
+              { text: ">", callback_data: "next" },
+            ]);
+          }
+        }
         const replyMark = {
           reply_markup: JSON.stringify({
             inline_keyboard: inline_keyboard,

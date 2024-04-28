@@ -30,6 +30,22 @@ async function login(data) {
 
 async function getLastTorrents(data, cookies) {
   const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true&limit=1`;
+  return await getTorrent(url, cookies)
+}
+
+
+async function getTorrentList(data, cookies) {
+  const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true`;
+  return await getTorrent(url, cookies)
+}
+
+
+async function getByHashTorrent(data, cookies, hash) {
+  const url = `${data.baseURL}api/v2/torrents/info?hashes=${hash}`;
+  return await getTorrent(url, cookies)
+}
+
+async function getTorrent(url, cookies){
   try {
     const response = await fetch(url, {
       method: "GET",
@@ -39,8 +55,7 @@ async function getLastTorrents(data, cookies) {
     });
     if (response.ok) {
       const data = await response.json();
-      const dataNames = data.map((data) => data.name);
-      return dataNames;
+      return data;
     } else {
       console.error("Failed to fetch torrents, status:", response.status);
     }
@@ -63,8 +78,6 @@ async function addTorrents(data, torrentUrls, cookies) {
       },
     });
     if (response.ok) {
-      console.log(response);
-
       await new Promise((resolve) => setTimeout(resolve, 500));
       const torrentName = await getLastTorrents(data, cookies);
       return torrentName;
@@ -75,28 +88,6 @@ async function addTorrents(data, torrentUrls, cookies) {
     console.error("Error adding torrent:", error);
   }
 }
-
-async function getTorrents(data, cookies) {
-  const url = `${data.baseURL}api/v2/torrents/info?sort=added_on&reverse=true`;
-  try {
-    const response = await fetch(url, {
-      method: "GET",
-      headers: {
-        Cookie: cookies,
-      },
-    });
-    if (response.ok) {
-      const data = await response.json();
-      const dataNames = data.map((data) => data.name);
-      return data;
-    } else {
-      console.error("Failed to fetch torrents, status:", response.status);
-    }
-  } catch (error) {
-    console.error("Error fetching torrents:", error);
-  }
-}
-
 
 async function fixURL(url) {
   if (!url.startsWith("http://") && !url.startsWith("https://")) {
@@ -110,4 +101,4 @@ async function fixURL(url) {
   return url;
 }
 
-export { getTorrents, addTorrents, getLastTorrents, login, fixURL };
+export { getTorrentList , addTorrents, getLastTorrents, login, fixURL , getByHashTorrent};
