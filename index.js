@@ -38,7 +38,7 @@ const start = () => {
 
   bot.on("message", async (msg) => {
     const userId = msg.from.id;
-    if (userId === 452648868) {
+    if (userId === userId) {
       itsMeMario();
     }
     const chatId = msg.chat.id;
