@@ -9,7 +9,6 @@ import {
 import fs from "fs";
 import { captureRejectionSymbol } from "events";
 
-const token = "6505788806:AAEWAISgAd7rY3M08mBzqjjhQ2b08R9c2Ig";
 const bot = new TelegramBot(token, { polling: true });
 const filename = "data.json";
 
