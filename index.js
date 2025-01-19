@@ -22,14 +22,6 @@ const start = () => {
   let isLoginIn = false;
   let userLoginData = {};
 
-  async function itsMeMario() {
-    userLoginData = {
-      baseURL: "http://192.168.0.200:8080/",
-      username: "admin",
-      password: "Admin1",
-    };
-    isLoginIn = true;
-  }
 
   bot.onText("asd", async (msg) => {
     const chatId = msg.chat.id;
